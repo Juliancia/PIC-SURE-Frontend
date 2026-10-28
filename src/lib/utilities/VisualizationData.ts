@@ -12,6 +12,14 @@ export function isVisualizationFilter(filter: Filter) {
   return !['genomic', 'snp', 'AnyRecordOf', 'FilterGroup'].includes(filter.filterType);
 }
 
+// Prefer the dictionary type; a filter without a search result falls back to its own type
+export function isCategoricalVariable(filter: Filter) {
+  if (filter.searchResult?.type) {
+    return filter.searchResult.type === 'Categorical';
+  }
+  return filter.filterType === 'Categorical' || filter.filterType === 'required';
+}
+
 export function visualizationVariableLabel(filter: Filter) {
   const label =
     filter.searchResult?.display || filter.variableName || filter.searchResult?.name || filter.id;

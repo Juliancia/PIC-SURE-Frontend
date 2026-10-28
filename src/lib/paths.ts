@@ -34,6 +34,7 @@ export const Picsure = {
   Visualization: {
     Distributions: `${VIZ}/auth/distributions`,
     DistributionsOpen: `${VIZ}/open/distributions`,
+    GroupedDistributions: `${VIZ}/auth/distributions/grouped`,
   },
 };
 

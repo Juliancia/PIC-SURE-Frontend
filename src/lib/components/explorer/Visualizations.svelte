@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import * as api from '$lib/api';
   import PlotlyPlot from '$lib/components/plots/PlotlyPlot.svelte';
+  import CompareVariables from '$lib/components/explorer/CompareVariables.svelte';
   import {
     type PlotValues,
     type PlotlyNewPlot,
@@ -12,6 +13,7 @@
   } from '$lib/utilities/Plotly';
   import { getQueryRequestV3 } from '$lib/utilities/QueryBuilder';
   import {
+    isCategoricalVariable,
     categoricalHasData,
     continuousHasData,
     getExcludedVisualizationVariables,
@@ -32,6 +34,7 @@
   let excludedVariables: string[] = $state([]);
   let newPlot: PlotlyNewPlot = $state() as PlotlyNewPlot;
   let loading = $state(true);
+  let compareVariables: Filter[] = $state([]);
 
   function getSubtitleByConceptPath(filters: Filter[]) {
     return new Map(
@@ -53,6 +56,13 @@
   async function loadPlotData() {
     const plotFilters = get(filters);
     const visualizationFilters = plotFilters.filter(isVisualizationFilter);
+    // Comparing needs two variables, one of them categorical, and is not offered in open access
+    compareVariables =
+      !isOpenAccess() &&
+      visualizationFilters.length >= 2 &&
+      visualizationFilters.some(isCategoricalVariable)
+        ? visualizationFilters
+        : [];
     const subtitleByConceptPath = getSubtitleByConceptPath(plotFilters);
     const minimumCount = 1;
 
@@ -151,3 +161,6 @@
     <div>No Visualizations Available</div>
   {/if}
 </div>
+{#if !loading && compareVariables.length}
+  <CompareVariables variables={compareVariables} {newPlot} />
+{/if}

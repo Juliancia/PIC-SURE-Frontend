@@ -381,3 +381,113 @@ export function createContinuousPlot(inData: ContinuousPlotData): PlotValues {
     },
   };
 }
+
+export type GroupedPlotData = {
+  groupBy: string;
+  target: string;
+  title: string;
+  groupName: string;
+  xaxisName: string;
+  yaxisName: string;
+  continuous: boolean;
+  categories: string[];
+  groups: Record<string, Record<string, number>>;
+};
+
+// One bar trace per group. Defaults to "% within group" so groups of different sizes can be compared.
+export function createGroupedPlot(inData: GroupedPlotData): PlotValues {
+  const groupNames = Object.keys(inData.groups);
+  const colors = getColors(groupNames.length);
+  const counts = groupNames.map((group) =>
+    inData.categories.map((category) => inData.groups[group][category] ?? 0),
+  );
+  const total = counts.flat().reduce((sum, count) => sum + count, 0);
+  const toPercents = (row: number[], denominator: number) =>
+    row.map((count) => (denominator ? (count / denominator) * 100 : 0));
+  const percentOfTotal = counts.map((row) => toPercents(row, total));
+  const percentWithinGroup = counts.map((row) =>
+    toPercents(
+      row,
+      row.reduce((sum, count) => sum + count, 0),
+    ),
+  );
+  const withinGroupTitle = `Percent within ${inData.groupName}`;
+
+  const data: Data[] = groupNames.map((group, i) => ({
+    type: 'bar',
+    name: group,
+    x: inData.categories,
+    y: percentWithinGroup[i],
+    marker: { color: colors[i] },
+    customdata: counts[i].map((count, j) => [
+      String(count),
+      toPercentLabel(percentWithinGroup[i][j]),
+    ]),
+    hovertemplate: `${inData.groupName}: ${group}<br>%{x}<br>%{customdata[0]} (%{customdata[1]} of ${group})<extra></extra>`,
+  }));
+
+  const menu = (x: number, active: number, buttons: Partial<UpdateMenu>['buttons']) =>
+    ({
+      type: 'dropdown',
+      x,
+      xanchor: 'left',
+      y: 1.02,
+      yanchor: 'bottom',
+      active,
+      showactive: true,
+      buttons,
+    }) as Partial<UpdateMenu>;
+
+  const layout: Partial<Layout> = {
+    title: { text: shortenTitle(inData.title) },
+    width: 700,
+    height: 600,
+    hovermode: 'closest',
+    barmode: 'group',
+    font: { family: 'Nunito Sans, sans-serif' },
+    legend: { title: { text: inData.groupName } },
+    margin: { t: 140 },
+    xaxis: { title: { text: inData.xaxisName }, automargin: true },
+    yaxis: { title: { text: withinGroupTitle }, automargin: true },
+    updatemenus: [
+      menu(0, 2, [
+        {
+          label: 'Count',
+          method: 'update',
+          args: [{ y: counts }, { 'yaxis.title.text': inData.yaxisName }],
+        },
+        {
+          label: '% of total',
+          method: 'update',
+          args: [{ y: percentOfTotal }, { 'yaxis.title.text': PERCENT_AXIS_TITLE }],
+        },
+        {
+          label: '% within group',
+          method: 'update',
+          args: [{ y: percentWithinGroup }, { 'yaxis.title.text': withinGroupTitle }],
+        },
+      ]),
+      menu(0.27, 0, [
+        { label: 'Grouped', method: 'relayout', args: [{ barmode: 'group' }] },
+        { label: 'Stacked', method: 'relayout', args: [{ barmode: 'stack' }] },
+      ]),
+      menu(0.5, 0, [
+        { label: 'Linear', method: 'relayout', args: [{ 'yaxis.type': 'linear' }] },
+        {
+          label: 'Log',
+          method: 'relayout',
+          args: [{ 'yaxis.type': 'log', 'yaxis.autorangeoptions.include': 1 }],
+        },
+      ]),
+    ],
+  };
+
+  return {
+    data,
+    layout,
+    meta: {
+      isCategorical: !inData.continuous,
+      unformatedTitle: inData.title,
+    },
+  };
+}

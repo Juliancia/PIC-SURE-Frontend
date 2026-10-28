@@ -7,6 +7,8 @@ vi.mock('$lib/configuration.svelte', () => ({
 import {
   createCategoryPlot,
   createContinuousPlot,
+  createGroupedPlot,
+  type GroupedPlotData,
   type CategoricalPlotData,
   type ContinuousPlotData,
 } from '$lib/utilities/Plotly';
@@ -190,5 +192,63 @@ describe('plot interactivity', () => {
       ['Count', 'Percent'],
       ['Linear', 'Log'],
     ]);
+  });
+});
+
+describe('createGroupedPlot', () => {
+  type GroupedTrace = BarTrace & { name: string; customdata: string[][] };
+  type Menu = { active: number; buttons: { label: string; args: Record<string, unknown>[] }[] };
+
+  const grouped: GroupedPlotData = {
+    groupBy: '\\demographics\\SEX\\',
+    target: '\\clinical\\DIAGNOSIS\\',
+    title: 'clinical: DIAGNOSIS by SEX',
+    groupName: 'SEX',
+    xaxisName: 'DIAGNOSIS',
+    yaxisName: 'Number of Participants',
+    continuous: false,
+    categories: ['A', 'B'],
+    groups: { female: { A: 3, B: 1 }, male: { A: 1, B: 1 } },
+  };
+
+  it('draws one trace per group, starting with percent within group', () => {
+    const plot = createGroupedPlot(grouped);
+    const [female, male] = plot.data as unknown as GroupedTrace[];
+
+    expect(plot.data).toHaveLength(2);
+    expect(female.name).toBe('female');
+    expect(female.x).toEqual(['A', 'B']);
+    expect(female.y).toEqual([75, 25]);
+    expect(male.y).toEqual([50, 50]);
+    expect(female.customdata).toEqual([
+      ['3', '75.0%'],
+      ['1', '25.0%'],
+    ]);
+    expect(plot.layout.barmode).toBe('group');
+    expect(plot.meta.isCategorical).toBe(true);
+  });
+
+  it('offers count, percent of total and percent within group', () => {
+    const plot = createGroupedPlot(grouped);
+    const [values, mode] = plot.layout.updatemenus as Menu[];
+
+    expect(values.buttons.map((b) => b.label)).toEqual(['Count', '% of total', '% within group']);
+    expect(values.active).toBe(2);
+    expect(values.buttons[0].args[0].y).toEqual([
+      [3, 1],
+      [1, 1],
+    ]);
+    expect(values.buttons[1].args[0].y).toEqual([
+      [50, 16.666666666666664],
+      [16.666666666666664, 16.666666666666664],
+    ]);
+    expect(mode.buttons.map((b) => b.label)).toEqual(['Grouped', 'Stacked']);
+  });
+
+  it('fills a missing category with zero', () => {
+    const plot = createGroupedPlot({ ...grouped, groups: { female: { A: 2 }, male: { B: 2 } } });
+    const [female] = plot.data as unknown as GroupedTrace[];
+
+    expect(female.customdata.map(([count]) => count)).toEqual(['2', '0']);
   });
 });

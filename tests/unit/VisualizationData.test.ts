@@ -4,6 +4,7 @@ import {
   continuousHasData,
   getExcludedVisualizationVariables,
   getIncludedConceptPaths,
+  isCategoricalVariable,
   isVisualizationFilter,
   visualizationVariableLabel,
 } from '$lib/utilities/VisualizationData';
@@ -118,5 +119,24 @@ describe('VisualizationData', () => {
         }),
       ),
     ).toBe('dataset - Name fallback');
+  });
+});
+
+describe('isCategoricalVariable', () => {
+  it('uses the dictionary type when the filter has a search result', () => {
+    // A "required" filter on a continuous concept is stored as Categorical but must not be offered for grouping
+    const required = { filterType: 'Categorical', searchResult: { type: 'Continuous' } } as Filter;
+    const categorical = {
+      filterType: 'Categorical',
+      searchResult: { type: 'Categorical' },
+    } as Filter;
+
+    expect(isCategoricalVariable(required)).toBe(false);
+    expect(isCategoricalVariable(categorical)).toBe(true);
+  });
+
+  it('falls back to the filter type without a search result', () => {
+    expect(isCategoricalVariable({ filterType: 'Categorical' } as Filter)).toBe(true);
+    expect(isCategoricalVariable({ filterType: 'numeric' } as Filter)).toBe(false);
   });
 });
