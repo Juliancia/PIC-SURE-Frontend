@@ -7,6 +7,7 @@
   import ErrorAlert from '$lib/components/ErrorAlert.svelte';
   import Loading from '$lib/components/Loading.svelte';
   import Datatable from '$lib/components/datatable/StaticTable.svelte';
+  import VariantCharts from '$lib/components/explorer/variant/VariantCharts.svelte';
   import { log, createLog } from '$lib/logger';
 
   let {
@@ -22,6 +23,12 @@
   } = $props();
 
   let aggregateCheckbox: boolean = $state(exportType === ExportType.Aggregate);
+  let view: 'table' | 'charts' = $state('table');
+
+  function setView(next: 'table' | 'charts') {
+    view = next;
+    log(createLog('ACTION', 'variant.view_toggle', { view: next }));
+  }
 
   function aggregateChange() {
     aggregateCheckbox = !aggregateCheckbox;
@@ -45,50 +52,66 @@
         {config.settings.variantExplorer.maxCount} variants.
       </ErrorAlert>
     {:else if count > 0 && !!varData && varData.rows.length > 0}
-      <Datatable
-        tableName="variant-explorer"
-        ariaLabel="Variant data"
-        data={varData.rows}
-        columns={varData.columns}
-        fullWidth
-        searchable
-        searchLogAction="variant.search_table"
-      >
-        {#snippet tableActions()}
-          {#if varData.downloadUrl}
-            <a
-              data-testid="variant-download-btn"
-              class="btn btn-sm preset-tonal-primary border border-primary-500"
-              href={varData.downloadUrl}
-              rel="external"
-              download="variantData.tsv"
-              onclick={() =>
-                log(createLog('EXPORT', 'variant.download', { exportType: exportType }))}
-            >
-              <i class="fa-solid fa-download"></i>
-              Download Variant{aggregateCheckbox ? ' (Aggregate)' : ''} Data
-            </a>
-          {/if}
-          {#if count > 0}
-            <div data-testid="variant-count" class="text-left w-full">
-              {count.toLocaleString()} variants found
-            </div>
-          {/if}
-          {#if config.settings.variantExplorer.type === ExportType.Full}
-            <div class="">
-              <label class="flex items-center space-x-2">
-                <input
-                  class="checkbox"
-                  type="checkbox"
-                  bind:checked={aggregateCheckbox}
-                  onclick={aggregateChange}
-                />
-                <p>Aggregate data</p>
-              </label>
-            </div>
-          {/if}
-        {/snippet}
-      </Datatable>
+      <div class="flex gap-2 mb-4" role="group" aria-label="Variant view">
+        {#each [['table', 'Table'], ['charts', 'Charts']] as [value, label] (value)}
+          <button
+            class="btn btn-sm {view === value
+              ? 'preset-filled-primary-500'
+              : 'preset-tonal-primary border border-primary-500'}"
+            aria-pressed={view === value}
+            data-testid="variant-view-{value}"
+            onclick={() => setView(value as 'table' | 'charts')}>{label}</button
+          >
+        {/each}
+      </div>
+      {#if view === 'charts'}
+        <VariantCharts data={varData} />
+      {:else}
+        <Datatable
+          tableName="variant-explorer"
+          ariaLabel="Variant data"
+          data={varData.rows}
+          columns={varData.columns}
+          fullWidth
+          searchable
+          searchLogAction="variant.search_table"
+        >
+          {#snippet tableActions()}
+            {#if varData.downloadUrl}
+              <a
+                data-testid="variant-download-btn"
+                class="btn btn-sm preset-tonal-primary border border-primary-500"
+                href={varData.downloadUrl}
+                rel="external"
+                download="variantData.tsv"
+                onclick={() =>
+                  log(createLog('EXPORT', 'variant.download', { exportType: exportType }))}
+              >
+                <i class="fa-solid fa-download"></i>
+                Download Variant{aggregateCheckbox ? ' (Aggregate)' : ''} Data
+              </a>
+            {/if}
+            {#if count > 0}
+              <div data-testid="variant-count" class="text-left w-full">
+                {count.toLocaleString()} variants found
+              </div>
+            {/if}
+            {#if config.settings.variantExplorer.type === ExportType.Full}
+              <div class="">
+                <label class="flex items-center space-x-2">
+                  <input
+                    class="checkbox"
+                    type="checkbox"
+                    bind:checked={aggregateCheckbox}
+                    onclick={aggregateChange}
+                  />
+                  <p>Aggregate data</p>
+                </label>
+              </div>
+            {/if}
+          {/snippet}
+        </Datatable>
+      {/if}
     {:else}
       <div data-testid="variant-count" class="flex-none w-full">
         {count.toLocaleString()} variants found
