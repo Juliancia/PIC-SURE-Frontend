@@ -1,7 +1,15 @@
-import type { PlotlyHTMLElement, Root, Data, Config, Layout } from 'plotly.js-basic-dist-min';
+import type {
+  PlotlyHTMLElement,
+  Root,
+  Data,
+  Config,
+  Layout,
+  UpdateMenu,
+} from 'plotly.js-basic-dist-min';
 import { config } from '$lib/configuration.svelte';
 
 const MAX_TITLE_LENGTH = 60;
+const PERCENT_AXIS_TITLE = 'Percent of Participants';
 
 export const defaultPlotlyConfig: Partial<Config> = {
   editable: true,
@@ -108,6 +116,93 @@ function toBars(values: ObfuscatedCount[]) {
   return { solidBar, hatchedBar, labels };
 }
 
+function toPercentLabel(value: number) {
+  return `${value.toFixed(1)}%`;
+}
+
+// Percentages are only offered for exact counts: a share of an obfuscated value (e.g. "< 10")
+// would suggest a precision the data does not have.
+function addInteractivity(
+  data: Data[],
+  layout: Partial<Layout>,
+  values: ObfuscatedCount[],
+  inData: CategoricalPlotData | ContinuousPlotData,
+  isCategorical: boolean,
+) {
+  const [solidTrace, hatchedTrace] = data as [Data & { y: number[] }, Data & { y: number[] }];
+  const showPercent = !inData.obfuscated;
+  const total = values.reduce((sum, { count }) => sum + count, 0);
+  const percents = values.map(({ count }) => (total ? (count / total) * 100 : 0));
+  const percentLabels = percents.map(toPercentLabel);
+
+  const customdata = values.map(({ display }, i) => [display, percentLabels[i]]);
+  const hovertemplate = showPercent
+    ? '%{x}<br>%{customdata[0]} (%{customdata[1]})<extra></extra>'
+    : '%{x}<br>%{customdata[0]}<extra></extra>';
+  data.forEach((trace) => Object.assign(trace, { customdata, hovertemplate }));
+
+  const menu = (x: number, buttons: Partial<UpdateMenu>['buttons']): Partial<UpdateMenu> => ({
+    type: 'dropdown',
+    x,
+    xanchor: 'left',
+    y: 1.02,
+    yanchor: 'bottom',
+    showactive: true,
+    buttons,
+  });
+
+  const menus: Partial<UpdateMenu>[] = [];
+  if (showPercent) {
+    menus.push(
+      menu(0, [
+        {
+          label: 'Count',
+          method: 'update',
+          args: [
+            { y: [solidTrace.y, hatchedTrace.y], text: [null, values.map((v) => v.display)] },
+            { 'yaxis.title.text': inData.yaxisName },
+          ],
+        },
+        {
+          label: 'Percent',
+          method: 'update',
+          args: [
+            { y: [percents, percents.map(() => 0)], text: [null, percentLabels] },
+            { 'yaxis.title.text': PERCENT_AXIS_TITLE },
+          ],
+        },
+      ]),
+    );
+  }
+  menus.push(
+    menu(menus.length * 0.3, [
+      { label: 'Linear', method: 'relayout', args: [{ 'yaxis.type': 'linear' }] },
+      // Without including 1, autorange starts the log axis near the smallest bar and hides it.
+      {
+        label: 'Log',
+        method: 'relayout',
+        args: [{ 'yaxis.type': 'log', 'yaxis.autorangeoptions.include': 1 }],
+      },
+    ]),
+  );
+  if (isCategorical) {
+    menus.push(
+      menu(menus.length * 0.3, [
+        { label: 'Original order', method: 'relayout', args: [{ 'xaxis.categoryorder': 'trace' }] },
+        {
+          label: 'Sort by count',
+          method: 'relayout',
+          args: [{ 'xaxis.categoryorder': 'total descending' }],
+        },
+      ]),
+    );
+  }
+
+  layout.updatemenus = menus;
+  layout.hovermode = 'closest';
+  layout.margin = { ...layout.margin, t: 140 };
+}
+
 export function createCategoryPlot(inData: CategoricalPlotData): PlotValues {
   const keys = Object.keys(inData.categoricalMap);
   const values = Object.values(inData.categoricalMap).map(normalizeCount);
@@ -156,7 +251,6 @@ export function createCategoryPlot(inData: CategoricalPlotData): PlotValues {
     },
     width: inData.chartWidth || 500,
     height: inData.chartHeight || 600,
-    hovermode: false,
     font: {
       family: 'Nunito Sans, sans-serif',
     },
@@ -174,6 +268,7 @@ export function createCategoryPlot(inData: CategoricalPlotData): PlotValues {
     },
     barmode: 'stack',
   };
+  addInteractivity(data, layout, values, inData, true);
 
   return {
     data,
@@ -257,7 +352,6 @@ export function createContinuousPlot(inData: ContinuousPlotData): PlotValues {
     width: inData.chartWidth || 500,
     height: inData.chartHeight || 600,
     autosize: false,
-    hovermode: false,
     bargap: 0.01,
     font: {
       family: 'Nunito Sans, sans-serif',
@@ -276,6 +370,7 @@ export function createContinuousPlot(inData: ContinuousPlotData): PlotValues {
     },
     barmode: 'stack',
   };
+  addInteractivity(data, layout, orderedValues, inData, false);
 
   return {
     data,

@@ -125,3 +125,70 @@ describe('createContinuousPlot', () => {
     expect(hatched.text).toEqual(['600', '700']);
   });
 });
+
+describe('plot interactivity', () => {
+  type HoverTrace = BarTrace & { customdata: string[][]; hovertemplate: string };
+  type Menu = { buttons: { label: string; args: Record<string, unknown>[] }[] };
+
+  function menuLabels(layout: { updatemenus?: unknown }) {
+    return (layout.updatemenus as Menu[]).map((menu) => menu.buttons.map((b) => b.label));
+  }
+
+  it('shows the backend display value and percent of total on hover for exact counts', () => {
+    const { plot, solid } = categoricalPlot({
+      White: { count: 300, display: '300', variance: null },
+      Black: { count: 100, display: '100', variance: null },
+    });
+    const trace = solid as HoverTrace;
+
+    expect(plot.layout.hovermode).toBe('closest');
+    expect(trace.customdata).toEqual([
+      ['300', '75.0%'],
+      ['100', '25.0%'],
+    ]);
+    expect(trace.hovertemplate).toContain('%{customdata[1]}');
+  });
+
+  it('offers count/percent, linear/log and sort controls for exact categorical data', () => {
+    const { plot } = categoricalPlot({ White: 300, Black: 100 });
+
+    expect(menuLabels(plot.layout)).toEqual([
+      ['Count', 'Percent'],
+      ['Linear', 'Log'],
+      ['Original order', 'Sort by count'],
+    ]);
+    const percent = (plot.layout.updatemenus as Menu[])[0].buttons[1].args[0];
+    expect(percent.y).toEqual([
+      [75, 25],
+      [0, 0],
+    ]);
+    expect(percent.text).toEqual([null, ['75.0%', '25.0%']]);
+  });
+
+  it('does not offer percentages for obfuscated data', () => {
+    const { plot, hatched } = categoricalPlot(
+      { Other: { count: 0, display: '< 10', variance: 9 } },
+      true,
+    );
+
+    expect(menuLabels(plot.layout)).toEqual([
+      ['Linear', 'Log'],
+      ['Original order', 'Sort by count'],
+    ]);
+    expect((hatched as HoverTrace).hovertemplate).not.toContain('%{customdata[1]}');
+  });
+
+  it('has no sort control for continuous data', () => {
+    const plot = createContinuousPlot({
+      ...baseChart,
+      continuous: true,
+      obfuscated: false,
+      continuousMap: { '18.0 - 24.0': 600, '24.0 - 30.0': 200 },
+    } as ContinuousPlotData);
+
+    expect(menuLabels(plot.layout)).toEqual([
+      ['Count', 'Percent'],
+      ['Linear', 'Log'],
+    ]);
+  });
+});
