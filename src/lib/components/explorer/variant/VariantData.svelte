@@ -8,7 +8,13 @@
   import Loading from '$lib/components/Loading.svelte';
   import Datatable from '$lib/components/datatable/StaticTable.svelte';
   import VariantCharts from '$lib/components/explorer/variant/VariantCharts.svelte';
+  import VariantLinksCell from '$lib/components/explorer/variant/VariantLinksCell.svelte';
+  import type { Column } from '$lib/components/datatable/types';
   import { log, createLog } from '$lib/logger';
+
+  // Not a column of the HPDS export: rendered from CHROM/POSITION/REF/ALT
+  const linksColumn: Column = { dataElement: 'Links', label: 'Links' };
+  const cellOverides = { [linksColumn.dataElement]: VariantLinksCell };
 
   let {
     count,
@@ -71,7 +77,8 @@
           tableName="variant-explorer"
           ariaLabel="Variant data"
           data={varData.rows}
-          columns={varData.columns}
+          columns={[linksColumn, ...varData.columns]}
+          {cellOverides}
           fullWidth
           searchable
           searchLogAction="variant.search_table"

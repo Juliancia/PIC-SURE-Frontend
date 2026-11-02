@@ -249,7 +249,7 @@ describe('CONFIG_FIELD_SCHEMA - derived from CONFIG_FIELDS', () => {
     });
     expect(byName('branding', 'DOTS_COLORS_CLASS')).toMatchObject({ type: 'json' });
     expect(byName('branding', 'LOGO_ALT')).toMatchObject({ type: 'string', default: '' });
-    expect(CONFIG_FIELD_SCHEMA.branding).toHaveLength(4);
+    expect(CONFIG_FIELD_SCHEMA.branding).toHaveLength(5);
   });
 
   it("mapFeatures actually uses CONFIG_FIELDS' declared default (not a second, hidden one)", () => {
@@ -358,6 +358,11 @@ describe('mapBranding', () => {
     import.meta.env.VITE_LOGO_ALT = 'cats';
     const branding = mapBranding('', [apiRow('LOGO_ALT', 'dogs')]);
     expect(branding.logo.alt).toBe('cats');
+  });
+  it('takes the genome build from config json unless GENOME_BUILD is set', () => {
+    expect(mapBranding('', []).genomic?.defaultGenomeBuild).toBe('GRCh38');
+    const branding = mapBranding('', [apiRow('GENOME_BUILD', 'GRCh37')]);
+    expect(branding.genomic?.defaultGenomeBuild).toBe('GRCh37');
   });
 });
 

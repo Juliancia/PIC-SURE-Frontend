@@ -633,6 +633,14 @@ const CONFIG_FIELDS: Record<ConfigKind, Record<string, FieldDef>> = {
       description:
         'URL of a custom logo image to display instead of the default PIC-SURE wordmark, in the header and login page.',
     },
+    // --- Genomic ---
+    GENOME_BUILD: {
+      group: 'Genomic Search',
+      type: 'string',
+      default: '',
+      description:
+        "Genome build of the loaded variant data, 'GRCh37' or 'GRCh38'. Shown in the SNP search help and used for the gnomAD, dbSNP and ClinVar links in the Variant Explorer. Defaults to the build in configuration.json.",
+    },
   },
 };
 
@@ -921,6 +929,11 @@ export function mapBranding(hostname: string, apiBranding: ConfigObject[] = []):
   branding.logo.alt = parser.asString('LOGO_ALT') || branding.logo.alt || branding.applicationName;
   branding.logo.src = parser.asString('LOGO');
   branding.dotsColorsClass = parser.asJson('DOTS_COLORS_CLASS') as string[];
+  branding.genomic = {
+    ...branding.genomic,
+    defaultGenomeBuild:
+      parser.asString('GENOME_BUILD') || branding.genomic?.defaultGenomeBuild || 'GRCh38',
+  };
 
   return branding;
 }

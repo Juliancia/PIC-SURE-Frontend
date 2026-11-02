@@ -89,6 +89,23 @@ test.describe('variant explorer', () => {
       await expect(page).toHaveURL('/explorer/variant');
       await expect(page.getByTestId('variant-explorer-table')).toBeVisible();
     });
+    test('Links each variant to dbSNP and ClinVar by position', async ({ page }) => {
+      // When
+      await page.getByTestId('variant-explorer-btn').click();
+
+      // Then
+      const links = page.getByTestId('variant-links').first();
+      await expect(links.getByRole('link', { name: 'dbSNP' })).toHaveAttribute(
+        'href',
+        /ncbi\.nlm\.nih\.gov\/snp\/.*52478/,
+      );
+      await expect(links.getByRole('link', { name: 'ClinVar' })).toHaveAttribute(
+        'href',
+        /ncbi\.nlm\.nih\.gov\/clinvar\/.*52478/,
+      );
+      // The mock alleles are not bases, so there is no exact gnomAD variant to link
+      await expect(links.getByRole('link', { name: 'gnomAD' })).toHaveCount(0);
+    });
     test('Can download variant data', async ({ page }) => {
       // Given
       await page.getByTestId('variant-explorer-btn').click();
